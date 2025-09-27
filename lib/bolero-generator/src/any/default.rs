@@ -1,4 +1,4 @@
-use crate::driver::object::{self, DynDriver, Object};
+use crate::driver::object::{self, DynDriver};
 use core::fmt;
 use std::cell::RefCell;
 
@@ -18,33 +18,18 @@ where
 type Type = Box<dyn Scope>;
 
 thread_local! {
-    static SCOPE: RefCell<Type> = RefCell::new(Box::new(Object(default())));
+    static SCOPE: RefCell<Option<Type>> = RefCell::new(None);
 }
 
-fn default() -> impl crate::Driver {
-    use rand_core::SeedableRng;
-    use rand_xoshiro::Xoshiro128PlusPlus;
-
-    let mut seed = [42; 16];
-    // make a best effort to get random seeds
-    let _ = getrandom::fill(&mut seed);
-    let rng = Xoshiro128PlusPlus::from_seed(seed);
-    // we don't want to limit the output of this by default for when it hasn't been configured by a fuzzer
-    let config = crate::driver::Options::default()
-        .with_max_len(usize::MAX)
-        .with_max_depth(10);
-    crate::driver::Rng::new(rng, &config)
-}
-
-fn set(value: Type) -> Type {
+fn set(value: Option<Type>) -> Option<Type> {
     SCOPE.with(|r| core::mem::replace(&mut *r.borrow_mut(), value))
 }
 
 // protect against panics in the `with` function
-struct Prev(Option<Type>);
+struct Prev(Option<Option<Type>>);
 
 impl Prev {
-    fn reset(mut self) -> Type {
+    fn reset(mut self) -> Option<Type> {
         set(self.0.take().unwrap())
     }
 }
@@ -62,9 +47,9 @@ where
     D: Scope,
     F: FnOnce() -> R,
 {
-    let prev = Prev(Some(set(driver)));
+    let prev = Prev(Some(set(Some(driver))));
     let res = f();
-    let driver = prev.reset();
+    let driver = prev.reset().unwrap();
     let driver = if driver.type_id() == core::any::TypeId::of::<D>() {
         unsafe {
             let raw = Box::into_raw(driver);
@@ -79,9 +64,10 @@ where
     (driver, res)
 }
 
-fn borrow_with<F: FnOnce(&mut object::Borrowed) -> R, R>(f: F) -> R {
+pub fn borrow_with<F: FnOnce(&mut object::Borrowed) -> R, R>(f: F) -> R {
     SCOPE.with(|r| {
-        let mut driver = r.borrow_mut();
+        let mut borrow = r.borrow_mut();
+        let driver = borrow.as_mut().expect("no scope set");
         let mut driver = driver.borrowed();
         f(&mut driver)
     })

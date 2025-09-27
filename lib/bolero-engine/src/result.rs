@@ -1,5 +1,4 @@
 use crate::panic::PanicError;
-use anyhow::Error;
 
 /// Trait that turns the test return value into a `Result`
 pub trait IntoResult {
@@ -22,14 +21,9 @@ impl IntoResult for bool {
     }
 }
 
-impl<T, E: Into<Error>> IntoResult for Result<T, E> {
+impl IntoResult for Result<(), PanicError> {
     fn into_result(self) -> Result<(), PanicError> {
-        if let Err(err) = self {
-            let err = err.into();
-            Err(PanicError::new(err.to_string()))
-        } else {
-            Ok(())
-        }
+        self
     }
 }
 

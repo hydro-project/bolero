@@ -34,7 +34,7 @@ pub fn shrink<T: Test, I: Input>(
     input: I,
     seed: Option<Seed>,
     options: &driver::Options,
-) -> Option<Failure<T::Value>> {
+) -> Option<(Vec<u8>, Failure<T::Value>)> {
     Shrinker::new(test, input, seed, options).shrink()
 }
 
@@ -81,7 +81,7 @@ impl<'a, T: Test, I: Input> Shrinker<'a, T, I> {
         }
     }
 
-    fn shrink(mut self) -> Option<Failure<T::Value>> {
+    fn shrink(mut self) -> Option<(Vec<u8>, Failure<T::Value>)> {
         if self.options.shrink_time_or_default().is_zero() {
             return None;
         }
@@ -141,17 +141,18 @@ impl<'a, T: Test, I: Input> Shrinker<'a, T, I> {
         let error = self.execute().err()?;
         panic::capture_backtrace(false);
 
+        let bytes = (&self.input.as_ref()[..self.end]).to_vec();
         let input = self.generate_value();
 
         // restore settings
         panic::forward_panic(forward_panic);
         panic::capture_backtrace(capture_backtrace);
 
-        Some(Failure {
+        Some((bytes, Failure {
             seed: self.seed,
             error,
             input,
-        })
+        }))
     }
 
     fn apply_truncation(&mut self) -> bool {
@@ -333,7 +334,7 @@ impl<'a, I: Input, Output> crate::Input<Output> for ShrinkInput<'a, I> {
     type Driver = I::Driver<'a>;
 
     fn with_slice<F: FnMut(&[u8]) -> Output>(&mut self, f: &mut F) -> Output {
-        f(self.input.as_ref())
+        f(&self.input.as_ref()[..self.len])
     }
 
     fn with_driver<F: FnMut(&mut Self::Driver) -> Output>(&mut self, f: &mut F) -> Output {

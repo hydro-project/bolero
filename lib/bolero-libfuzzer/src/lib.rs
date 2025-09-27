@@ -60,8 +60,9 @@ pub mod fuzzer {
 
                         let shrunken = test.shrink(slice.to_vec(), None, options);
 
-                        if let Some(shrunken) = shrunken {
+                        let bytes = if let Some((shrunken_bytes, shrunken)) = shrunken {
                             eprintln!("{shrunken:#}");
+                            shrunken_bytes
                         } else {
                             let input = input::Bytes::new(slice, options);
                             eprintln!(
@@ -72,6 +73,15 @@ pub mod fuzzer {
                                     input
                                 }
                             );
+                            slice.to_vec()
+                        };
+
+                        if let Ok(path) = std::env::var("BOLERO_FAILURE_OUTPUT") {
+                            if let Ok(mut file) = std::fs::File::create(path) {
+                                use std::io::Write;
+                                file.write_all(&bytes)
+                                    .expect("failed to write failure output");
+                            }
                         }
 
                         std::process::abort();
@@ -117,14 +127,46 @@ pub mod fuzzer {
                         report.on_result(is_valid);
                     }
                     Err(error) => {
-                        eprintln!(
-                            "{:#}",
-                            Failure {
-                                seed: None,
-                                error,
-                                input: (),
+                        eprintln!("test failed; shrinking input...");
+
+                        let shrunken =
+                            bolero_engine::BorrowedSliceTest::new(|shrink_slice: &[u8]| {
+                                let mut drv = driver.take().unwrap();
+                                drv.reset(
+                                    unsafe {
+                                        core::mem::transmute::<&[u8], &'static [u8]>(shrink_slice)
+                                    },
+                                    options,
+                                );
+                                let (drv_back, result) = bolero_engine::any::run(drv, || test());
+                                driver = Some(drv_back);
+                                result.map(|_| ())
+                            })
+                            .shrink(slice.to_vec(), None, options);
+
+                        let bytes = if let Some((shrunken_bytes, shrunken)) = shrunken {
+                            eprintln!("{shrunken:#}");
+                            shrunken_bytes
+                        } else {
+                            let input = input::Bytes::new(slice, options);
+                            eprintln!(
+                                "{:#}",
+                                Failure {
+                                    seed: None,
+                                    error,
+                                    input
+                                }
+                            );
+                            slice.to_vec()
+                        };
+
+                        if let Ok(path) = std::env::var("BOLERO_FAILURE_OUTPUT") {
+                            if let Ok(mut file) = std::fs::File::create(path) {
+                                use std::io::Write;
+                                file.write_all(&bytes)
+                                    .expect("failed to write failure output");
                             }
-                        );
+                        }
 
                         std::process::abort();
                     }

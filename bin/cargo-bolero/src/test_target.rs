@@ -13,6 +13,7 @@ pub struct TestTarget {
     pub version: String,
     pub exe: String,
     pub work_dir: String,
+    pub manifest_dir: String,
     pub package_name: String,
     pub is_harnessed: bool,
     pub test_name: String,
@@ -83,6 +84,7 @@ impl TestTarget {
         let mut cmd = Command::new(&self.exe);
 
         cmd.args(self.command_args()).envs(self.command_env());
+        cmd.current_dir(PathBuf::from(&self.manifest_dir));
 
         cmd
     }
@@ -105,6 +107,10 @@ impl TestTarget {
             .chain(Some((
                 "BOLERO_LIBTEST_HARNESS",
                 if self.is_harnessed { "1" } else { "0" },
+            )))
+            .chain(Some((
+                "CARGO_MANIFEST_DIR",
+                self.manifest_dir.as_str()
             )))
     }
 }

@@ -120,25 +120,26 @@ impl Project {
             cmd.arg("--manifest-path").arg(value);
         }
 
+        let rustflags = self.rustflags("RUSTFLAGS", flags)?;
+
+        if let Some(value) = self.target_dir.as_ref() {
+            cmd.arg("--target-dir").arg(value);
+        } else {
+            let mut hasher = DefaultHasher::new();
+            rustflags.hash(&mut hasher);
+            cmd.arg("--target-dir")
+                .arg(format!("target/fuzz/build_{:x}", hasher.finish()));
+        }
+
+        if self.build_std {
+            cmd.arg("-Zbuild-std");
+        }
+
+        cmd.env("RUSTFLAGS", rustflags)
+            .env("RUSTDOCFLAGS", self.rustflags("RUSTDOCFLAGS", flags)?);
+
         if let Some(fuzzer) = fuzzer {
-            let rustflags = self.rustflags("RUSTFLAGS", flags)?;
-
-            if let Some(value) = self.target_dir.as_ref() {
-                cmd.arg("--target-dir").arg(value);
-            } else {
-                let mut hasher = DefaultHasher::new();
-                rustflags.hash(&mut hasher);
-                cmd.arg("--target-dir")
-                    .arg(format!("target/fuzz/build_{:x}", hasher.finish()));
-            }
-
-            if self.build_std {
-                cmd.arg("-Zbuild-std");
-            }
-
-            cmd.env("RUSTFLAGS", rustflags)
-                .env("RUSTDOCFLAGS", self.rustflags("RUSTDOCFLAGS", flags)?)
-                .env("BOLERO_FUZZER", fuzzer);
+            cmd.env("BOLERO_FUZZER", fuzzer);
         }
 
         Ok(cmd)

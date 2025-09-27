@@ -83,11 +83,12 @@ impl TargetLocation {
     fn print(&self) {
         println!(
             r#"
-{{"__bolero_target":"v0.5.0","exe":{:?},"work_dir":{:?},"package_name":{:?},"is_harnessed":{:?},"test_name":{:?}}}"#,
+{{"__bolero_target":"v0.5.0","exe":{:?},"work_dir":{:?},"manifest_dir":{:?},"package_name":{:?},"is_harnessed":{:?},"test_name":{:?}}}"#,
             ::std::env::current_exe()
                 .expect("valid current_exe")
                 .display(),
             self.work_dir().expect("valid work_dir").display(),
+            &self.manifest_dir,
             &self.package_name,
             self.is_harnessed(),
             self.item_path(),
