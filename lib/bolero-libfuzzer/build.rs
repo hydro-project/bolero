@@ -5,7 +5,10 @@ fn main() {
     println!("cargo:rerun-if-env-changed=CARGO_CFG_FUZZING_LIBFUZZER");
     println!("cargo:rerun-if-changed=libfuzzer/");
 
-    if std::env::var("CARGO_CFG_FUZZING_LIBFUZZER").is_ok() {
+    if std::env::var("CARGO_CFG_FUZZING_LIBFUZZER").is_ok() || std::env::var("BOLERO_FUZZER") == Ok("libfuzzer".into()) {
+        println!("cargo:rustc-cfg=fuzzing_libfuzzer");
+        println!("cargo:rustc-link-arg=-export_dynamic");
+
         let mut build = cc::Build::new();
         let sources = ::std::fs::read_dir("libfuzzer")
             .expect("listable source directory")

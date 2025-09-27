@@ -195,7 +195,7 @@ impl TestEngine {
                     test.test(&mut input).map_err(|error| {
                         let shrunken = test.shrink(buffer.clone(), data.seed(), file_options);
 
-                        if let Some(shrunken) = shrunken {
+                        if let Some((_, shrunken)) = shrunken {
                             format!("{shrunken:#}")
                         } else {
                             format!(
@@ -222,7 +222,7 @@ impl TestEngine {
                             test.shrink(buffer.clone(), data.seed(), rng_options)
                         };
 
-                        if let Some(shrunken) = shrunken {
+                        if let Some((_, shrunken)) = shrunken {
                             format!("{shrunken:#}")
                         } else {
                             buffer.clear();
@@ -258,7 +258,7 @@ impl TestEngine {
                     Failure {
                         seed: None,
                         error,
-                        input: (),
+                        input: driver.serialize(),
                     }
                     .to_string()
                 });

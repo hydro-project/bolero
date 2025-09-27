@@ -26,7 +26,7 @@ pub trait Test: Sized {
         input: I,
         seed: Option<Seed>,
         options: &driver::Options,
-    ) -> Option<Failure<Self::Value>> {
+    ) -> Option<(Vec<u8>, Failure<Self::Value>)> {
         crate::shrink::shrink(self, input, seed, options)
     }
 }

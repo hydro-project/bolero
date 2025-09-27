@@ -1,8 +1,8 @@
 [package]
-name = "bolero-generator"
+name = "bolero-generator-hydro"
 version = "0.13.5"
-authors = ["Cameron Bytheway <bytheway.cameron@gmail.com>"]
-description = "value generator for testing and fuzzing"
+authors = ["Shadaj Laddad <shadaj@users.noreply.github.com>", "Cameron Bytheway <bytheway.cameron@gmail.com>"]
+description = "value generator for testing and fuzzing (forked for the hydro_lang crate)"
 homepage = "https://github.com/camshaft/bolero"
 repository = "https://github.com/camshaft/bolero"
 keywords = ["testing", "quickcheck", "property", "fuzz", "fuzzing"]
