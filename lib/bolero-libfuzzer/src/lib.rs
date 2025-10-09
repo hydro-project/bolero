@@ -70,6 +70,7 @@ pub mod fuzzer {
                                 Failure {
                                     seed: None,
                                     error,
+                                    hide_error: false,
                                     input
                                 }
                             );
@@ -96,7 +97,7 @@ pub mod fuzzer {
 
         fn run<F, R>(self, mut test: F, options: driver::Options) -> Self::Output
         where
-            F: FnMut() -> R + core::panic::RefUnwindSafe,
+            F: FnMut(bool) -> R + core::panic::RefUnwindSafe,
             R: bolero_engine::IntoResult,
         {
             panic::set_hook();
@@ -119,14 +120,14 @@ pub mod fuzzer {
                 let input: &'static [u8] = unsafe { core::mem::transmute::<&[u8], &[u8]>(slice) };
                 let mut drv = driver.take().unwrap();
                 drv.reset(input, options);
-                let (drv, result) = bolero_engine::any::run(drv, &mut test);
+                let (drv, result) = bolero_engine::any::run(drv, || test(false));
                 driver = Some(drv);
 
                 match result {
                     Ok(is_valid) => {
                         report.on_result(is_valid);
                     }
-                    Err(error) => {
+                    Err(mut error) => {
                         eprintln!("test failed; shrinking input...");
 
                         let shrunken =
@@ -138,13 +139,17 @@ pub mod fuzzer {
                                     },
                                     options,
                                 );
-                                let (drv_back, result) = bolero_engine::any::run(drv, || test());
+                                let (drv_back, result) = bolero_engine::any::run(drv, || test(false));
                                 driver = Some(drv_back);
                                 result.map(|_| ())
                             })
                             .shrink(slice.to_vec(), None, options);
 
-                        let bytes = if let Some((shrunken_bytes, shrunken)) = shrunken {
+                        let bytes = if let Some((shrunken_bytes, mut shrunken)) = shrunken {
+                            if options.replay_on_fail() {
+                                shrunken.hide_error = true;
+                            }
+
                             eprintln!("{shrunken:#}");
                             shrunken_bytes
                         } else {
@@ -154,6 +159,7 @@ pub mod fuzzer {
                                 Failure {
                                     seed: None,
                                     error,
+                                    hide_error: options.replay_on_fail(),
                                     input
                                 }
                             );
@@ -166,6 +172,18 @@ pub mod fuzzer {
                                 file.write_all(&bytes)
                                     .expect("failed to write failure output");
                             }
+                        }
+
+                        if options.replay_on_fail() {
+                            panic::forward_panic(true);
+                            let mut drv = driver.take().unwrap();
+                            drv.reset(
+                                unsafe { core::mem::transmute::<&[u8], &'static [u8]>(&bytes) },
+                                options,
+                            );
+                            let (drv_back, result) = bolero_engine::any::scope::with(drv, || test(true));
+                            result.into_result().expect_err("Did not crash when replaying, is it deterministic?");
+                            driver = Some(drv_back);
                         }
 
                         std::process::abort();
@@ -276,7 +294,7 @@ pub mod fuzzer {
 
     #[doc(hidden)]
     #[no_mangle]
-    pub unsafe extern "C" fn LLVMFuzzerTestOneInput(data: *const u8, size: usize) -> i32 {
+    pub unsafe extern "C-unwind" fn LLVMFuzzerTestOneInput(data: *const u8, size: usize) -> i32 {
         let data_slice = std::slice::from_raw_parts(data, size);
         (TESTFN.as_mut().expect("uninitialized test function"))(data_slice);
         0

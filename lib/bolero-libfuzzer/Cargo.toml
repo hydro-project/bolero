@@ -1,6 +1,6 @@
 [package]
 name = "bolero-libfuzzer-hydro"
-version = "0.13.0"
+version = "0.13.1"
 authors = ["Shadaj Laddad <shadaj@users.noreply.github.com>", "Cameron Bytheway <bytheway.cameron@gmail.com>"]
 description = "libfuzzer plugin for bolero (forked for the hydro_lang crate)"
 homepage = "https://github.com/camshaft/bolero"
@@ -16,7 +16,7 @@ bin = []
 lib = ["bolero-engine"]
 
 [dependencies]
-bolero-engine = { version = "0.13.4", path = "../bolero-engine", features = ["cache"], optional = true, package = "bolero-engine-hydro" }
+bolero-engine = { version = "0.13.5", path = "../bolero-engine", features = ["cache"], optional = true, package = "bolero-engine-hydro" }
 
 [build-dependencies]
 cc = "1.0"

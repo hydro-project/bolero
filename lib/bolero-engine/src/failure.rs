@@ -10,6 +10,7 @@ pub struct Failure<Input> {
     pub error: PanicError,
     pub input: Input,
     pub seed: Option<Seed>,
+    pub hide_error: bool,
 }
 
 impl<Input: Debug> Display for Failure<Input> {
@@ -23,19 +24,21 @@ impl<Input: Debug> Display for Failure<Input> {
         }
 
         writeln!(f, "Input: \n{:#?}\n", self.input)?;
-        writeln!(f, "Error: \n{}", self.error)?;
 
-        if f.alternate() {
-            if let Some(backtrace) = self.error.backtrace.as_ref().filter(|_| rust_backtrace()) {
-                writeln!(f, "{backtrace}")?;
-            } else {
-                writeln!(f, "note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace.")?;
+        if !self.hide_error {
+            writeln!(f, "Error: \n{}", self.error)?;
+            if f.alternate() {
+                if let Some(backtrace) = self.error.backtrace.as_ref().filter(|_| rust_backtrace()) {
+                    writeln!(f, "{backtrace}\n")?;
+                } else {
+                    writeln!(f, "note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace.\n")?;
+                }
             }
         }
 
-        writeln!(
+        write!(
             f,
-            "\n=============================================================="
+            "=============================================================="
         )?;
         Ok(())
     }

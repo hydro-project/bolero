@@ -151,6 +151,7 @@ impl<'a, T: Test, I: Input> Shrinker<'a, T, I> {
         Some((bytes, Failure {
             seed: self.seed,
             error,
+            hide_error: false,
             input,
         }))
     }

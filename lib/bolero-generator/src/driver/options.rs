@@ -6,6 +6,7 @@ pub struct Options {
     max_depth: Option<usize>,
     max_len: Option<usize>,
     exhaustive: bool,
+    replay_on_fail: bool,
 }
 
 impl Options {
@@ -33,6 +34,11 @@ impl Options {
         self
     }
 
+    pub fn with_replay_on_fail(mut self, replay_on_fail: bool) -> Self {
+        self.replay_on_fail = replay_on_fail;
+        self
+    }
+
     pub fn set_exhaustive(&mut self, exhaustive: bool) -> &mut Self {
         self.exhaustive = exhaustive;
         self
@@ -50,6 +56,11 @@ impl Options {
 
     pub fn set_max_len(&mut self, max_len: usize) -> &mut Self {
         self.max_len = Some(max_len);
+        self
+    }
+
+    pub fn set_replay_on_fail(&mut self, replay_on_fail: bool) -> &mut Self {
+        self.replay_on_fail = replay_on_fail;
         self
     }
 
@@ -71,6 +82,11 @@ impl Options {
     #[inline]
     pub fn shrink_time(&self) -> Option<Duration> {
         self.shrink_time
+    }
+
+    #[inline]
+    pub fn replay_on_fail(&self) -> bool {
+        self.replay_on_fail
     }
 
     #[inline]

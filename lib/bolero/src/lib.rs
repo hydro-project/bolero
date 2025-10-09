@@ -472,13 +472,23 @@ impl<E> TestTarget<ByteSliceGenerator, E, BorrowedInput> {
 
     /// Iterate over all of the inputs and check the `TestTarget`
     #[cfg(feature = "std")]
-    pub fn run<T, R>(self, test: T) -> E::Output
+    pub fn run<T, R>(self, mut test: T) -> E::Output
     where
         T: FnMut() -> R + core::panic::RefUnwindSafe,
         R: bolero_engine::IntoResult,
         E: bolero_engine::ScopedEngine,
     {
-        self.engine.run(test, self.driver_options)
+        self.engine.run(move |_| test(), self.driver_options)
+    }
+
+    #[cfg(feature = "std")]
+    pub fn run_with_replay<T, R>(self, test: T) -> E::Output
+    where
+        T: FnMut(bool) -> R + core::panic::RefUnwindSafe,
+        R: bolero_engine::IntoResult,
+        E: bolero_engine::ScopedEngine,
+    {
+        self.engine.run(test, self.driver_options.with_replay_on_fail(true))
     }
 }
 

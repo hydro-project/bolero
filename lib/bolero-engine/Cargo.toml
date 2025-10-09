@@ -1,6 +1,6 @@
 [package]
 name = "bolero-engine-hydro"
-version = "0.13.4"
+version = "0.13.5"
 authors = ["Shadaj Laddad <shadaj@users.noreply.github.com>", "Cameron Bytheway <bytheway.cameron@gmail.com>"]
 description = "fuzz and property testing framework (forked for the hydro_lang crate)"
 homepage = "https://github.com/camshaft/bolero"
@@ -18,14 +18,14 @@ rng = ["rand", "rand_xoshiro", "bolero-generator/alloc"]
 
 [dependencies]
 anyhow = "1"
-bolero-generator = { version = "0.13.5", path = "../bolero-generator", default-features = false, package = "bolero-generator-hydro" }
+bolero-generator = { version = "0.13.6", path = "../bolero-generator", default-features = false, package = "bolero-generator-hydro" }
 lazy_static = "1"
 pretty-hex = { version = "0.4", default-features = false }
 rand = { version = "0.9", optional = true }
 rand_xoshiro = { version = "0.7", optional = true }
 
 [dev-dependencies]
-bolero-generator = { version = "0.13.5", path = "../bolero-generator", features = ["std"], package = "bolero-generator-hydro" }
+bolero-generator = { version = "0.13.6", path = "../bolero-generator", features = ["std"], package = "bolero-generator-hydro" }
 rand = "0.9"
 rand_xoshiro = "0.7"
 

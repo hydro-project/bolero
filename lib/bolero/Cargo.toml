@@ -1,6 +1,6 @@
 [package]
 name = "bolero-hydro"
-version = "0.13.4"
+version = "0.13.5"
 authors = ["Shadaj Laddad <shadaj@users.noreply.github.com>", "Cameron Bytheway <bytheway.cameron@gmail.com>"]
 description = "fuzz and property testing front-end (forked for the hydro_lang crate)"
 homepage = "https://github.com/camshaft/bolero"
@@ -18,9 +18,9 @@ alloc = ["bolero-generator/alloc"]
 arbitrary = ["bolero-generator/arbitrary"]
 
 [dependencies]
-bolero-engine = { version = "0.13.4", path = "../bolero-engine", package = "bolero-engine-hydro" }
-bolero-generator = { version = "0.13.4", path = "../bolero-generator", default-features = false, package = "bolero-generator-hydro" }
-bolero-libfuzzer = { version = "0.13", path = "../bolero-libfuzzer", package = "bolero-libfuzzer-hydro" }
+bolero-engine = { version = "0.13.5", path = "../bolero-engine", package = "bolero-engine-hydro" }
+bolero-generator = { version = "0.13.6", path = "../bolero-generator", default-features = false, package = "bolero-generator-hydro" }
+bolero-libfuzzer = { version = "0.13.1", path = "../bolero-libfuzzer", package = "bolero-libfuzzer-hydro" }
 cfg-if = "1"
 
 [target.'cfg(fuzzing_afl)'.dependencies]
@@ -30,14 +30,14 @@ bolero-afl = { version = "0.13", path = "../bolero-afl" }
 bolero-honggfuzz = { version = "0.13", path = "../bolero-honggfuzz" }
 
 [target.'cfg(fuzzing_random)'.dependencies]
-bolero-engine = { version = "0.13.4", path = "../bolero-engine", features = ["cache", "rng"], package = "bolero-engine-hydro" }
+bolero-engine = { version = "0.13.5", path = "../bolero-engine", features = ["cache", "rng"], package = "bolero-engine-hydro" }
 rand = { version = "0.9" }
 
 [target.'cfg(kani)'.dependencies]
 bolero-kani = { version = "0.13", path = "../bolero-kani" }
 
 [target.'cfg(not(any(fuzzing, kani)))'.dependencies]
-bolero-engine = { version = "0.13.4", path = "../bolero-engine", features = ["cache", "rng"], package = "bolero-engine-hydro" }
+bolero-engine = { version = "0.13.5", path = "../bolero-engine", features = ["cache", "rng"], package = "bolero-engine-hydro" }
 rand = { version = "0.9" }
 
 [dev-dependencies]

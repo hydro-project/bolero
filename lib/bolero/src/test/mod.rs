@@ -150,7 +150,8 @@ impl TestEngine {
         if options.exhaustive() {
             let mut buffer = vec![];
 
-            let testfn = |mut driver: Box<Object<exhaustive::Driver>>, test: &mut T| {
+            assert!(!options.replay_on_fail(), "replay_on_fail is not supported with run_with_value");
+            let testfn = |mut driver: Box<Object<exhaustive::Driver>>, _is_replay: bool, test: &mut T| {
                 let mut input = input::ExhastiveInput {
                     driver: &mut driver,
                     buffer: &mut buffer,
@@ -165,6 +166,7 @@ impl TestEngine {
                         let error = Failure {
                             seed: None,
                             error,
+                            hide_error: false,
                             input,
                         };
                         Err(error.to_string())
@@ -185,7 +187,9 @@ impl TestEngine {
 
         let mut buffer = vec![];
         let mut cache = driver::cache::Cache::default();
-        let testfn = |test: &mut T, data: &input::Test| {
+
+        assert!(!rng_options.replay_on_fail(), "replay_on_fail is not supported with run_with_value");
+        let testfn = |test: &mut T, _is_replay: bool, data: &input::Test| {
             buffer.clear();
             match data {
                 input::Test::File(file) => {
@@ -203,6 +207,7 @@ impl TestEngine {
                                 Failure {
                                     seed: data.seed(),
                                     error,
+                                    hide_error: false,
                                     input: buffer.clone()
                                 }
                             )
@@ -233,6 +238,7 @@ impl TestEngine {
                                 Failure {
                                     seed: data.seed(),
                                     error,
+                                    hide_error: false,
                                     input
                                 }
                             )
@@ -242,27 +248,37 @@ impl TestEngine {
             }
         };
 
-        self.run_tests(test, testfn)
+        self.run_tests(test, testfn, rng_options.replay_on_fail())
     }
 
     #[cfg(feature = "std")]
     fn run_with_scope<T, R>(self, test: T, options: driver::Options)
     where
-        T: FnMut() -> R + core::panic::RefUnwindSafe,
+        T: FnMut(bool) -> R + core::panic::RefUnwindSafe,
         R: bolero_engine::IntoResult,
     {
         if options.exhaustive() {
-            let testfn = |driver: ExhastiveDriver, test: &mut T| {
-                let (driver, result) = bolero_engine::any::run(driver, test);
-                let result = result.map_err(|error| {
-                    Failure {
-                        seed: None,
-                        error,
-                        input: driver.serialize(),
-                    }
-                    .to_string()
-                });
-                (driver, result)
+            let replay_on_fail = options.replay_on_fail();
+            let testfn = |driver: ExhastiveDriver, is_replay: bool, test: &mut T| {
+                if is_replay {
+                    bolero_engine::any::scope::with(driver, || {
+                        test(true);
+                    });
+
+                    unreachable!("Did not crash when replaying, is it deterministic?");
+                } else {
+                    let (driver, result) = bolero_engine::any::run(driver, || test(is_replay));
+                    let result = result.map_err(|error| {
+                        Failure {
+                            seed: None,
+                            error,
+                            hide_error: replay_on_fail,
+                            input: driver.serialize(),
+                        }
+                        .to_string()
+                    });
+                    (driver, result)
+                }
             };
 
             return self.run_exhaustive(test, testfn, options);
@@ -282,7 +298,7 @@ impl TestEngine {
         let file_driver = Box::new(file_driver);
         let mut file_driver = Some(file_driver);
 
-        let testfn = |test: &mut T, data: &input::Test| {
+        let testfn = |test: &mut T, is_replay: bool, data: &input::Test| {
             buffer.clear();
             match data {
                 input::Test::File(file) => {
@@ -291,47 +307,67 @@ impl TestEngine {
                     let mut buf = core::mem::take(&mut buffer);
                     file.read_into(&mut buf);
                     driver.reset(buf, file_options);
-                    let (mut driver, result) = bolero_engine::any::run(driver, test);
-                    buffer = driver.reset(vec![], file_options);
-                    file_driver = Some(driver);
 
-                    // TODO shrinking
+                    if is_replay {
+                        bolero_engine::any::scope::with(driver, || {
+                            test(true);
+                        });
 
-                    result.map_err(|error| {
-                        Failure {
-                            seed: None,
-                            error,
-                            input: (), // TODO figure out a better input to show
-                        }
-                        .to_string()
-                    })
+                        unreachable!("Did not crash when replaying, is it deterministic?");
+                    } else {
+                        let (mut driver, result) = bolero_engine::any::run(driver, || test(false));
+                        buffer = driver.reset(vec![], file_options);
+                        file_driver = Some(driver);
+
+                        // TODO shrinking
+
+                        result.map_err(|error| {
+                            Failure {
+                                seed: None,
+                                error,
+                                hide_error: false,
+                                input: (), // TODO figure out a better input to show
+                            }
+                            .to_string()
+                        })
+                    }
                 }
                 input::Test::Rng(conf) => {
                     let seed = conf.seed;
                     let driver = conf.driver(rng_options);
                     let driver = Box::new(Object(driver));
-                    let (_driver, result) = bolero_engine::any::run(driver, test);
 
-                    // TODO shrinking
+                    if is_replay {
+                        bolero_engine::any::scope::with(driver, || {
+                            test(true);
+                        });
 
-                    result.map_err(|error| {
-                        Failure {
-                            seed: Some(seed),
-                            error,
-                            input: (), // TODO figure out a better input to show
-                        }
-                        .to_string()
-                    })
+                        unreachable!("Did not crash when replaying, is it deterministic?");
+                    } else {
+                        let (_driver, result) = bolero_engine::any::run(driver, || test(is_replay));
+
+                        // TODO shrinking
+
+                        result.map_err(|error| {
+                            Failure {
+                                seed: Some(seed),
+                                error,
+                                hide_error: false,
+                                input: (), // TODO figure out a better input to show
+                            }
+                            .to_string()
+                        })
+                    }
                 }
             }
         };
 
-        self.run_tests(test, testfn)
+        self.run_tests(test, testfn, rng_options.replay_on_fail())
     }
 
-    fn run_tests<S, T>(mut self, mut state: S, mut testfn: T)
+    fn run_tests<S, T>(mut self, mut state: S, mut testfn: T, replay_on_fail: bool)
     where
-        T: FnMut(&mut S, &input::Test) -> Result<bool, String>,
+        T: FnMut(&mut S, bool, &input::Test) -> Result<bool, String>,
     {
         // if we're fuzzing with cargo-bolero and the iteration count isn't specified
         // then go forever
@@ -371,7 +407,7 @@ impl TestEngine {
 
             outcome.on_named_test(&input.data);
 
-            match testfn(&mut state, &input.data) {
+            match testfn(&mut state, false, &input.data) {
                 Ok(is_valid) => {
                     report.on_result(is_valid);
                 }
@@ -380,6 +416,10 @@ impl TestEngine {
                     outcome.on_exit(outcome::ExitReason::TestFailure);
                     drop(outcome);
                     eprintln!("{err}");
+
+                    if replay_on_fail {
+                        let _ = testfn(&mut state, true, &input.data).expect_err("Did not crash when replaying, is it deterministic?");
+                    }
                     panic!("test failed");
                 }
             }
@@ -388,7 +428,7 @@ impl TestEngine {
 
     fn run_exhaustive<S, F>(self, mut state: S, mut testfn: F, options: driver::Options)
     where
-        F: FnMut(ExhastiveDriver, &mut S) -> (ExhastiveDriver, Result<bool, String>),
+        F: FnMut(ExhastiveDriver, bool, &mut S) -> (ExhastiveDriver, Result<bool, String>),
     {
         bolero_engine::panic::set_hook();
         bolero_engine::panic::forward_panic(false);
@@ -417,7 +457,7 @@ impl TestEngine {
 
             outcome.on_exhaustive_input();
 
-            let (drvr, result) = testfn(driver, &mut state);
+            let (drvr, result) = testfn(driver, false, &mut state);
             driver = drvr;
 
             match result {
@@ -430,6 +470,12 @@ impl TestEngine {
                     outcome.on_exit(outcome::ExitReason::TestFailure);
                     drop(outcome);
                     eprintln!("{error}");
+
+                    if options.replay_on_fail() {
+                        driver.replay();
+                        let _ = testfn(driver, true, &mut state).1.expect_err("Did not crash when replaying, is it deterministic?");
+                    }
+
                     panic!("test failed");
                 }
             }
@@ -456,7 +502,7 @@ impl bolero_engine::ScopedEngine for TestEngine {
 
     fn run<F, R>(self, test: F, options: driver::Options) -> Self::Output
     where
-        F: FnMut() -> R + core::panic::RefUnwindSafe,
+        F: FnMut(bool) -> R + core::panic::RefUnwindSafe,
         R: bolero_engine::IntoResult,
     {
         self.run_with_scope(test, options);
