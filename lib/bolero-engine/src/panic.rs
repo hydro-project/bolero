@@ -91,6 +91,17 @@ pub fn catch<F: RefUnwindSafe + FnOnce() -> Result<bool, PanicError>>(
         Ok(Ok(v)) => Ok(v),
         Ok(Err(err)) => Err(err),
         Err(err) => {
+            // if an `any::Error` was returned, then the input wasn't valid (e.g. an
+            // `assume` failed). Check this *before* consulting the panic hook's stored
+            // error so that assumption failures are treated as invalid inputs rather
+            // than test failures. Discard any error stored by the hook for this panic
+            // so it doesn't leak into a later, unrelated failure.
+            #[cfg(feature = "any")]
+            if err.downcast_ref::<bolero_generator::any::Error>().is_some() {
+                let _ = take_panic();
+                return Ok(false);
+            }
+
             if let Some(err) = take_panic() {
                 return Err(err);
             }
@@ -100,12 +111,6 @@ pub fn catch<F: RefUnwindSafe + FnOnce() -> Result<bool, PanicError>>(
                         return Err(PanicError::new(format!($fmt, err)));
                     }
                 };
-            }
-
-            // if an `any::Error` was returned, then the input wasn't valid
-            #[cfg(feature = "any")]
-            if err.downcast_ref::<bolero_generator::any::Error>().is_some() {
-                return Ok(false);
             }
 
             try_downcast!(PanicInfo, "{}");
