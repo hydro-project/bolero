@@ -1,6 +1,6 @@
 [package]
 name = "bolero-engine-hydro"
-version = "0.13.6"
+version = "0.13.7"
 authors = ["Shadaj Laddad <shadaj@users.noreply.github.com>", "Cameron Bytheway <bytheway.cameron@gmail.com>"]
 description = "fuzz and property testing framework (forked for the hydro_lang crate)"
 homepage = "https://github.com/camshaft/bolero"
