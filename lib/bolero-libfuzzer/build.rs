@@ -9,6 +9,11 @@ fn main() {
         println!("cargo:rustc-cfg=fuzzing_libfuzzer");
         println!("cargo:rustc-link-arg=-export_dynamic");
 
+        // The host process provides the runtime (see the `external-runtime` feature).
+        if std::env::var_os("CARGO_FEATURE_EXTERNAL_RUNTIME").is_some() {
+            return;
+        }
+
         let mut build = cc::Build::new();
         let sources = ::std::fs::read_dir("libfuzzer")
             .expect("listable source directory")
